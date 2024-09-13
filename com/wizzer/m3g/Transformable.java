@@ -11,7 +11,12 @@ public abstract class Transformable extends Object3D {
    private static float[] SCALE_DEFAULT = new float[]{1.0F, 1.0F, 1.0F};
    private static float[] TRANSLATION_DEFAULT = new float[]{0.0F, 0.0F, 0.0F};
    private static float[] ORIENTATION_DEFAULT = new float[]{0.0F, 0.0F, 0.0F};
-   private static float[] TRANSFORM_DEFAULT = new float[]{1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
+   private static float[] TRANSFORM_DEFAULT = new float[]{
+      1.0F, 0.0F, 0.0F, 0.0F,
+      0.0F, 1.0F, 0.0F, 0.0F,
+      0.0F, 0.0F, 1.0F, 0.0F,
+      0.0F, 0.0F, 0.0F, 1.0F
+   };
    private boolean m_hasComponentTransform;
    private boolean m_hasGeneralTransform;
    private float[] m_scale;
