@@ -6,7 +6,13 @@ import javax.media.opengl.GL;
 
 public class Transform {
    private float[] m_matrix = new float[16];
-   private static float[] IDENTITY = new float[]{1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
+   private static float[] IDENTITY = new float[]
+   {
+      1.0F, 0.0F, 0.0F, 0.0F,
+      0.0F, 1.0F, 0.0F, 0.0F,
+      0.0F, 0.0F, 1.0F, 0.0F,
+      0.0F, 0.0F, 0.0F, 1.0F
+   };
 
    public Transform() {
       this.setIdentity();
@@ -43,7 +49,13 @@ public class Transform {
    }
 
    public void invert() {
-      float[] n = new float[]{this.m_matrix[0], this.m_matrix[4], this.m_matrix[8], -this.m_matrix[0] * this.m_matrix[3] - this.m_matrix[4] * this.m_matrix[7] - this.m_matrix[8] * this.m_matrix[11], this.m_matrix[1], this.m_matrix[5], this.m_matrix[9], -this.m_matrix[1] * this.m_matrix[3] - this.m_matrix[5] * this.m_matrix[7] - this.m_matrix[9] * this.m_matrix[11], this.m_matrix[2], this.m_matrix[6], this.m_matrix[10], -this.m_matrix[2] * this.m_matrix[3] - this.m_matrix[6] * this.m_matrix[7] - this.m_matrix[10] * this.m_matrix[11], 0.0F, 0.0F, 0.0F, 1.0F};
+      float[] n = new float[]
+      {
+         this.m_matrix[0], this.m_matrix[4], this.m_matrix[8], -this.m_matrix[0] * this.m_matrix[3] - this.m_matrix[4] * this.m_matrix[7] - this.m_matrix[8] * this.m_matrix[11],
+         this.m_matrix[1], this.m_matrix[5], this.m_matrix[9], -this.m_matrix[1] * this.m_matrix[3] - this.m_matrix[5] * this.m_matrix[7] - this.m_matrix[9] * this.m_matrix[11],
+         this.m_matrix[2], this.m_matrix[6], this.m_matrix[10], -this.m_matrix[2] * this.m_matrix[3] - this.m_matrix[6] * this.m_matrix[7] - this.m_matrix[10] * this.m_matrix[11],
+         0.0F, 0.0F, 0.0F, 1.0F
+      };
       this.set(n);
    }
 
