@@ -1,261 +1,496 @@
+/*
+ * MIDPEmulator.java
+ * Created on Aug 29, 2008
+ */
+
+// COPYRIGHT_BEGIN
+//
+// Copyright (C) 2000-2008  Wizzer Works (msm@wizzerworks.com)
+// 
+// This file is part of the M3G Toolkit.
+//
+// The M3G Toolkit is free software; you can redistribute it and/or modify it
+// under the terms of the GNU Lesser General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
+// more details.
+//
+// You should have received a copy of the GNU Lesser General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+//
+// COPYRIGHT_END
+
+// Declare package.
 package com.wizzer.m3g.midp;
 
-import com.wizzer.m3g.lcdui.Display;
-import com.wizzer.m3g.lcdui.Graphics;
-import com.wizzer.m3g.midlet.MIDlet;
-import java.awt.BorderLayout;
-import java.awt.Button;
-import java.awt.Color;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.GridLayout;
-import java.awt.Panel;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+// Import standard Java classes.
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.media.opengl.GL;
-import javax.media.opengl.GLCanvas;
+import java.awt.Dimension;
+import java.awt.Panel;
+import java.awt.Container;
+import java.awt.BorderLayout;
+import java.awt.GridLayout;
+import java.awt.Button;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+
+// Import Swing classes.
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-public class MIDPEmulator {
-   private static MIDPEmulator m_instance = null;
-   public static int MIDLET_STATE_DESTROYED = 0;
-   public static int MIDLET_STATE_ACTIVE = 1;
-   public static int MIDLET_STATE_PAUSED = 2;
-   public static int DEVICE_USE_SCREEN = 1;
-   public static int DEVICE_USE_KEYPAD = 2;
-   private static int DEFAULT_BACKGROUND_COLOR = 6758;
-   private ArrayList m_midlets;
-   private ArrayList m_inputListeners;
-   private Hashtable m_graphicsToCanvas;
-   private GLCanvas m_activeCanvas;
-   private Container m_parent;
-   private JPanel m_framePanel;
-   private JPanel m_screenPanel;
-   private JPanel m_buttonPanel;
-   private int m_buttonPanelHeight;
-   private int m_deviceSettings;
-   private Device m_device;
-   private GL m_gl;
+// Import M3G Viewer classes.
+import com.wizzer.m3g.midlet.MIDlet;
+import com.wizzer.m3g.lcdui.Graphics;
+import com.wizzer.m3g.lcdui.Display;
 
-   private MIDPEmulator() {
-      this(new Device());
-   }
+// Import JOGL classes.
+import javax.media.opengl.GL;
+import javax.media.opengl.GLCanvas;
 
-   private MIDPEmulator(Device device) {
-      this.m_midlets = new ArrayList();
-      this.m_inputListeners = new ArrayList();
-      this.m_graphicsToCanvas = new Hashtable();
-      this.m_activeCanvas = null;
-      this.m_buttonPanelHeight = 100;
-      this.m_deviceSettings = 0;
-      this.m_device = null;
-      this.m_gl = null;
-      this.m_device = device;
-   }
+/**
+ * This class emulates a MIDP device.
+ * <p>
+ * It implements a simple Swing interface consisting of a device
+ * screen and ten input key buttons.
+ * </p>
+ * 
+ * @author Mark S. Millard
+ */
+public class MIDPEmulator
+{
+    // The singleton instance of the MIDP Emulator.
+	private static MIDPEmulator m_instance = null;
 
-   public static MIDPEmulator getInstance() {
-      if (m_instance == null) {
-         m_instance = new MIDPEmulator();
-      }
+	/** The Midlet is destroyed. */
+	public static int MIDLET_STATE_DESTROYED = 0;
+	/** The Midlet is active. */
+	public static int MIDLET_STATE_ACTIVE = 1;
+	/** The Midlet is paused. */
+	public static int MIDLET_STATE_PAUSED = 2;
+	/** Use device screen configuration. */
+	public static int DEVICE_USE_SCREEN = 0x00000001;
+	/** Use device keypad configuratoin. */
+	public static int DEVICE_USE_KEYPAD = 0x00000002;
+	
+	// The default background color for the screen.
+	private static int DEFAULT_BACKGROUND_COLOR = 0x001A66;
+	
+	// The collection of Midlets installed on the emulator.
+	private ArrayList m_midlets = new ArrayList();
+	// The collection of input listeners for key and command events.
+	private ArrayList m_inputListeners = new ArrayList();
+	// The collection of Graphics to GLCanvas mappings.
+	private Hashtable m_graphicsToCanvas = new Hashtable();
+	// The currently activated GLCanvas.
+	private GLCanvas m_activeCanvas = null;
+	
+	// The Swing Container widget.
+	private Container m_parent;
+	// The frame panel.
+	private JPanel m_framePanel;
+	// The Screen widget.
+	private JPanel m_screenPanel;
+	// The collection of Button widgets.
+	private JPanel m_buttonPanel;
+	// The height of the button panel.
+	private int m_buttonPanelHeight = 100;
+	// The emulator device flags.
+	private int m_deviceSettings = 0x00000000;
 
-      return m_instance;
-   }
+	// The emulated device.
+	private Device m_device = null;
+    
+	// The OpenGL manager for JNI calls.
+    private GL m_gl = null;
+    
+    // Hide the default constructor.
+	private MIDPEmulator()
+	{
+		this(new Device());
+	}
 
-   public void addMidlet(MIDlet midlet) {
-      if (!this.m_midlets.contains(midlet)) {
-         this.m_midlets.add(midlet);
-         Reflection.callMethod(midlet, "startApp", (Object[])null);
-      }
+	// A constructor that sets the associated device.
+	private MIDPEmulator(Device device)
+	{
+		m_device = device;
+	}
+	
+	/**
+	 * Get the Singleton instance of the MIDP Emulator.
+	 * 
+	 * @return An instance of <code>MIDPEmulator</code> is returned.
+	 */
+	public static MIDPEmulator getInstance()
+	{
+		if (m_instance == null)
+			m_instance = new MIDPEmulator();
+		return m_instance;
+	}
+	
+	/**
+	 * Add a midlet to the emulator.
+	 * <p>
+	 * The midlet is started by calling the <code>startApp()</code>
+	 * method on the midlet.
+	 * </p>
+	 * 
+	 * @param midlet The <code>MIDlet</code> to add.
+	 */
+	public void addMidlet(MIDlet midlet)
+	{
+		if (! m_midlets.contains(midlet))
+		{
+			m_midlets.add(midlet);
+			Reflection.callMethod(midlet, "startApp", null);
+		}
+	}
+	
+	/**
+	 * Remove the midlet from the emulator.
+	 * <p>
+	 * The midlet is stopped by calling the <code>destroyApp()</code>
+	 * method on the midlet.
+	 * </p>
+	 * 
+	 * @param midlet The <code>MIDlet</code> to remove.
+	 */
+	public void removeMidlet(MIDlet midlet)
+	{
+		if (m_midlets.contains(midlet))
+		{
+			Class[] argTypes = new Class[1];
+			argTypes[0] = boolean.class;
+			Object[] args = new Object[1];
+			args[0] = true;
+			Reflection.callMethod(midlet, "destroyApp", argTypes, args);
+			m_midlets.remove(midlet);
+		}
+	}
+	
+	/**
+	 * Get a Java property associated with the specified key.
+	 * <p>
+	 * Not implemented yet.
+	 * </p>
+	 * 
+	 * @param key The name of the Java property to retrieve.
+	 * 
+	 * @return The Java property value is returned.
+	 */
+	public String getProperty(String key)
+	{
+		return "";
+	}
+	
+	/**
+	 * Used by midlets to tell the emulator they want to destroy.
+	 * 
+	 * @param midlet The <code>MIDlet</code> requesting notification.
+	 */
+	public void notifyDestroyed(MIDlet midlet)
+	{
+		exit();
+	}
 
-   }
+	/**
+	 * Used by midlets to tell the emulator they want to enter paused state.
+	 * 
+	 * @param midlet The <code>MIDlet</code> requesting notification.
+	 */
+	public void notifyPaused(MIDlet midlet)
+	{
+	}
+	
+	/**
+	 * Used by midlets to tell the emulator they want to enter active state.
+	 * 
+	 * @param midlet The <code>MIDlet</code> requesting notification.
+	 */
+	public void resumeRequest(MIDlet midlet)
+	{
+	}
 
-   public void removeMidlet(MIDlet midlet) {
-      if (this.m_midlets.contains(midlet)) {
-         Class[] argTypes = new Class[]{Boolean.TYPE};
-         Object[] args = new Object[]{true};
-         Reflection.callMethod(midlet, "destroyApp", argTypes, args);
-         this.m_midlets.remove(midlet);
-      }
+	/**
+	 * The MIDP Emulator exit hook.
+	 */
+	public void exit()
+	{
+		System.exit(0);
+	}
+	
+	/**
+	 * Set the title of the main MIDP Emulator component.
+	 * 
+	 * @param title The title of the emulator.
+	 */
+	public void setTitle(String title)
+	{
+		if (m_parent instanceof JFrame)
+			((JFrame)m_parent).setTitle(title);
+		else
+		Logger.global.logp(Level.INFO, "com.wizzer.m3g.midp",
+			"setTitle(String title)", "Not implimented");
+	}
+	
+	/**
+	 * Get the associated device context for the MIDP Emulator.
+	 * 
+	 * @return The associated <code>Device</code> is returned.
+	 */
+	public Device getDevice()
+	{
+		return m_device;
+	}
 
-   }
+	/**
+	 * Set the active JOGL canvas to the specified <i>canvas</i>.
+	 * 
+	 * @param canvas The JOGL canvas to make current.
+	 */
+	public void setCurrentCanvas(GLCanvas canvas)
+	{
+		m_activeCanvas = canvas;
+		m_screenPanel.removeAll();
+		m_screenPanel.add(m_activeCanvas);
+		m_activeCanvas.requestFocus();
+	}
 
-   public String getProperty(String key) {
-      return "";
-   }
+	/**
+	 * Map the M3G Toolkit graphics context to a JOGL canvas.
+	 * 
+	 * @param g The M3G Toolkit graphics context.
+	 * @param canvas The JOGL canvas.
+	 */
+	public void setGraphicsToCanvas(Graphics g, GLCanvas canvas)
+	{
+		m_graphicsToCanvas.put(g, canvas);
+	}
+	
+	/**
+	 * Get the JOGL canvas associated with the specified M3G Toolkit graphics context.
+	 * 
+	 * @param g The M3G Toolkit graphics context.
+	 * 
+	 * @return The associated JOGL canvas is returned.
+	 */
+	public GLCanvas getRenderTarget(Graphics g)
+	{
+		return (GLCanvas)m_graphicsToCanvas.get(g);
+	}
+	
+	/**
+	 * Set the JOGL manager.
+	 * 
+	 * @param gl The JOGL manager utility.
+	 */
+	public void setGL(GL gl)
+	{
+		this.m_gl = gl;
+	}
+	
+	/**
+	 * Get the JOGL manager.
+	 * 
+	 * @return The associated <code>GL</code> is returned.
+	 */
+	public GL getGL()
+	{
+		return this.m_gl;
+	}
 
-   public void notifyDestroyed(MIDlet midlet) {
-      this.exit();
-   }
+	/**
+	 * Add a listener for user input.
+	 * 
+	 * @param listener The listener interface for receiving actions events.
+	 */
+	public void addInputListener(ActionListener listener)
+	{
+		m_inputListeners.add(listener);
+	}
+	
+	/**
+	 * Refresh all displays that are associated with each registered
+	 * midlet.
+	 */
+	public void refreshDisplays()
+	{
+		for (int i = 0; i < m_midlets.size(); i++)
+		{
+			Display display = Display.getDisplay((MIDlet)m_midlets.get(i));
+			display.repaint(0, 0, 0, 0);
+		}
+	}
+	
+	/**
+	 * Initialize the emulator.
+	 * 
+	 * @param parent The parent widget.
+	 * @param screenWidth The width of the container's screen.
+	 * @param screenHeight The height of the conatiner's screen.
+	 */
+	public void init(Container parent, int screenWidth, int screenHeight, int flags)
+	{
+		int frameWidth, frameHeight;
+		
+		frameWidth = m_device.getScreenWidth();
+		if ((flags & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD)
+		    frameHeight = m_device.getScreenHeight() + m_buttonPanelHeight;
+		else
+			frameHeight = m_device.getScreenHeight();
 
-   public void notifyPaused(MIDlet midlet) {
-   }
+		m_parent = parent;
+		
+		// Check whether this is a standalone configuration.
+		if (m_parent instanceof JFrame)
+		{
+			frameHeight += 36;
+			m_parent.setBounds((screenWidth - frameWidth) / 2,
+					(screenHeight - frameHeight) / 2,
+					frameWidth, frameHeight);
+		}
 
-   public void resumeRequest(MIDlet midlet) {
-   }
+        // Create a top-level panel to manage the screen and button panels.
+		m_framePanel = new JPanel();
+		m_framePanel.setBackground(new java.awt.Color(0xff0000));
+		m_framePanel.setBounds((screenWidth - frameWidth) / 2,
+			(screenHeight - frameHeight) / 2,
+			frameWidth, frameHeight);
+		Dimension size = new Dimension();
+		size.width = frameWidth;
+		size.height = frameHeight;
+		m_framePanel.setPreferredSize(size);
+		m_framePanel.setLayout(new BorderLayout());
+        m_parent.add(m_framePanel);
 
-   public void exit() {
-      System.exit(0);
-   }
+        m_screenPanel = new JPanel();
+        //m_screenPanel.setSize(m_device.getScreenWidth(), m_device.getScreenHeight());
+        size.width = m_device.getScreenWidth();
+        size.height = m_device.getScreenHeight();
+        m_screenPanel.setPreferredSize(size);
+        //m_screenPanel.setBounds((screenWidth - frameWidth) / 2,
+    	//	(screenHeight - frameHeight) / 2,
+    	//	m_device.getScreenWidth(), m_device.getScreenHeight());
+        m_screenPanel.setBackground(new java.awt.Color(DEFAULT_BACKGROUND_COLOR));
+        m_framePanel.add(m_screenPanel, BorderLayout.CENTER);
 
-   public void setTitle(String title) {
-      if (this.m_parent instanceof JFrame) {
-         ((JFrame)this.m_parent).setTitle(title);
-      } else {
-         Logger.global.logp(Level.INFO, "com.wizzer.m3g.midp", "setTitle(String title)", "Not implimented");
-      }
+        if ((flags & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD)
+        {
+	        m_buttonPanel = new JPanel();
+	        //m_buttonPanel.setSize(m_device.getScreenWidth(), m_buttonPanelHeight);
+	        size.width = m_device.getScreenWidth();
+	        size.height = m_buttonPanelHeight;
+	        m_buttonPanel.setPreferredSize(size);
+	        //m_buttonPanel.setBounds((screenWidth - frameWidth) / 2,
+	    	//	(screenHeight - frameHeight) / 2,
+	    	//	m_device.getScreenWidth(), m_device.getScreenHeight());
+	        m_screenPanel.setBackground(new java.awt.Color(DEFAULT_BACKGROUND_COLOR));
+	        m_buttonPanel.setLayout(new GridLayout(4,3));
+	        m_framePanel.add(m_buttonPanel, BorderLayout.SOUTH);
+	        addButtons();
+        }
+        
+        // Remember the device settings.
+        m_deviceSettings = flags;
+        // Show the parent widget.
+        m_parent.setVisible(true);
+	}
+	
+	/**
+	 * Reset the emulator.
+	 */
+	public void reset()
+	{
+		m_screenPanel = null;
+		m_buttonPanel = null;
+		m_framePanel = null;
+		m_parent = null;
+	}
+	
+	/**
+	 * Resize the emulator.
+	 * 
+	 * @param screenWidth The new width of the container.
+	 * @param screenHeight The new height of the container.
+	 */
+	public void resize(int screenWidth, int screenHeight)
+	{
+		int frameWidth, frameHeight;
+		
+		frameWidth = m_device.getScreenWidth();
+		if ((m_deviceSettings & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD)
+			frameHeight = m_device.getScreenHeight() + m_buttonPanelHeight + 4;
+		else
+			frameHeight = m_device.getScreenHeight();
 
-   }
+		if (m_parent instanceof JFrame)
+		{
+			/*
+			int width = screenWidth;
+			int height = screenHeight;
+			
+			if (screenWidth <= frameWidth)
+				width = frameWidth;
+		    m_framePanel.setSize(width, height);
+		    */
+		} else
+		{
+		    m_framePanel.setBounds((screenWidth - frameWidth) / 2,
+		        (screenHeight - frameHeight) / 2,
+			    frameWidth, frameHeight);
+		    Dimension size = new Dimension();
+			size.width = frameWidth;
+			size.height = frameHeight;
+			m_framePanel.setPreferredSize(size);
+			if ((m_deviceSettings & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD)
+			    m_buttonPanel.repaint(0, 0, m_device.getScreenWidth(), m_buttonPanelHeight);
+		}
+	}
 
-   public Device getDevice() {
-      return this.m_device;
-   }
+	// Add the buttons.
+	private void addButtons()
+	{
+		for (int i = 1; i < 10; i++)
+			createButton(Integer.toString(i));		
+		
+		m_buttonPanel.add(new Panel());
+		createButton("0");
+	}
 
-   public void setCurrentCanvas(GLCanvas canvas) {
-      this.m_activeCanvas = canvas;
-      this.m_screenPanel.removeAll();
-      this.m_screenPanel.add(this.m_activeCanvas);
-      this.m_activeCanvas.requestFocus();
-   }
-
-   public void setGraphicsToCanvas(Graphics g, GLCanvas canvas) {
-      this.m_graphicsToCanvas.put(g, canvas);
-   }
-
-   public GLCanvas getRenderTarget(Graphics g) {
-      return (GLCanvas)this.m_graphicsToCanvas.get(g);
-   }
-
-   public void setGL(GL gl) {
-      this.m_gl = gl;
-   }
-
-   public GL getGL() {
-      return this.m_gl;
-   }
-
-   public void addInputListener(ActionListener listener) {
-      this.m_inputListeners.add(listener);
-   }
-
-   public void refreshDisplays() {
-      for(int i = 0; i < this.m_midlets.size(); ++i) {
-         Display display = Display.getDisplay((MIDlet)this.m_midlets.get(i));
-         display.repaint(0, 0, 0, 0);
-      }
-
-   }
-
-   public void init(Container parent, int screenWidth, int screenHeight, int flags) {
-      int frameWidth = this.m_device.getScreenWidth();
-      int frameHeight;
-      if ((flags & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD) {
-         frameHeight = this.m_device.getScreenHeight() + this.m_buttonPanelHeight;
-      } else {
-         frameHeight = this.m_device.getScreenHeight();
-      }
-
-      this.m_parent = parent;
-      if (this.m_parent instanceof JFrame) {
-         frameHeight += 36;
-         this.m_parent.setBounds((screenWidth - frameWidth) / 2, (screenHeight - frameHeight) / 2, frameWidth, frameHeight);
-      }
-
-      this.m_framePanel = new JPanel();
-      this.m_framePanel.setBackground(new Color(16711680));
-      this.m_framePanel.setBounds((screenWidth - frameWidth) / 2, (screenHeight - frameHeight) / 2, frameWidth, frameHeight);
-      Dimension size = new Dimension();
-      size.width = frameWidth;
-      size.height = frameHeight;
-      this.m_framePanel.setPreferredSize(size);
-      this.m_framePanel.setLayout(new BorderLayout());
-      this.m_parent.add(this.m_framePanel);
-      this.m_screenPanel = new JPanel();
-      size.width = this.m_device.getScreenWidth();
-      size.height = this.m_device.getScreenHeight();
-      this.m_screenPanel.setPreferredSize(size);
-      this.m_screenPanel.setBackground(new Color(DEFAULT_BACKGROUND_COLOR));
-      this.m_framePanel.add(this.m_screenPanel, "Center");
-      if ((flags & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD) {
-         this.m_buttonPanel = new JPanel();
-         size.width = this.m_device.getScreenWidth();
-         size.height = this.m_buttonPanelHeight;
-         this.m_buttonPanel.setPreferredSize(size);
-         this.m_screenPanel.setBackground(new Color(DEFAULT_BACKGROUND_COLOR));
-         this.m_buttonPanel.setLayout(new GridLayout(4, 3));
-         this.m_framePanel.add(this.m_buttonPanel, "South");
-         this.addButtons();
-      }
-
-      this.m_deviceSettings = flags;
-      this.m_parent.setVisible(true);
-   }
-
-   public void reset() {
-      this.m_screenPanel = null;
-      this.m_buttonPanel = null;
-      this.m_framePanel = null;
-      this.m_parent = null;
-   }
-
-   public void resize(int screenWidth, int screenHeight) {
-      int frameWidth = this.m_device.getScreenWidth();
-      int frameHeight;
-      if ((this.m_deviceSettings & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD) {
-         frameHeight = this.m_device.getScreenHeight() + this.m_buttonPanelHeight + 4;
-      } else {
-         frameHeight = this.m_device.getScreenHeight();
-      }
-
-      if (!(this.m_parent instanceof JFrame)) {
-         this.m_framePanel.setBounds((screenWidth - frameWidth) / 2, (screenHeight - frameHeight) / 2, frameWidth, frameHeight);
-         Dimension size = new Dimension();
-         size.width = frameWidth;
-         size.height = frameHeight;
-         this.m_framePanel.setPreferredSize(size);
-         if ((this.m_deviceSettings & DEVICE_USE_KEYPAD) == DEVICE_USE_KEYPAD) {
-            this.m_buttonPanel.repaint(0, 0, this.m_device.getScreenWidth(), this.m_buttonPanelHeight);
-         }
-      }
-
-   }
-
-   private void addButtons() {
-      for(int i = 1; i < 10; ++i) {
-         this.createButton(Integer.toString(i));
-      }
-
-      this.m_buttonPanel.add(new Panel());
-      this.createButton("0");
-   }
-
-   private void createButton(String label) {
-      Button btn = new Button(label);
-      this.m_buttonPanel.add(btn);
-      btn.addActionListener(new ActionListener() {
-         public void actionPerformed(ActionEvent e) {
-            MIDPEmulator.this.buttonPressed(e);
-            if (MIDPEmulator.this.m_activeCanvas != null) {
-               MIDPEmulator.this.m_activeCanvas.requestFocus();
-            } else {
-               Logger.global.logp(Level.WARNING, "com.wizzer.m3g.midp.MIDPEmulator", "actionPerformed(ActionEvent e)", "No active canvas");
-            }
-
-         }
-      });
-   }
-
-   private void buttonPressed(ActionEvent e) {
-      Iterator it = this.m_inputListeners.iterator();
-
-      while(it.hasNext()) {
-         ((ActionListener)it.next()).actionPerformed(e);
-      }
-
-   }
+	// Create a button with the specified label.
+	private void createButton(String label)
+	{
+		Button btn = new Button(label);
+		m_buttonPanel.add(btn);
+		btn.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				buttonPressed(e);
+				if (m_activeCanvas != null)
+				    m_activeCanvas.requestFocus();
+				else
+					Logger.global.logp(Level.WARNING, "com.wizzer.m3g.midp.MIDPEmulator",
+						"actionPerformed(ActionEvent e)", "No active canvas");
+					
+			}
+		});
+	}
+	
+	// Handle a button pressed event.
+	private void buttonPressed(ActionEvent e)
+	{
+		Iterator it = m_inputListeners.iterator();
+		while (it.hasNext())
+			((ActionListener)it.next()).actionPerformed(e);
+		//System.out.println(((Button)e.getSource()).getLabel());
+	}
 }
