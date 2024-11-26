@@ -1,489 +1,521 @@
+// COPYRIGHT_BEGIN
+//
+// Copyright (C) 2000-2008  Wizzer Works (msm@wizzerworks.com)
+// 
+// This file is part of the M3G Toolkit.
+//
+// The M3G Toolkit is free software; you can redistribute it and/or modify it
+// under the terms of the GNU Lesser General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
+// more details.
+//
+// You should have received a copy of the GNU Lesser General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+//
+// COPYRIGHT_END
+
+// Declare package.
 package com.wizzer.m3g;
 
+// Import standard Java classes.
+import java.awt.image.*;
+import java.io.*;
+import java.util.*;
+import java.util.logging.*;
+import java.nio.*;
+
+// Import JOGL classes.
+import javax.media.opengl.*;
 import com.sun.opengl.util.BufferUtil;
-import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
-import java.awt.image.IndexColorModel;
-import java.awt.image.Raster;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-public class Image2D extends Object3D {
-   public static final byte ALPHA = 96;
-   public static final byte LUMINANCE = 97;
-   public static final byte LUMINANCE_ALPHA = 98;
-   public static final byte RGB = 99;
-   public static final byte RGBA = 100;
-   private BufferedImage m_originalImage;
-   private BufferedImage m_nativeImage;
-   private int m_format;
-   private boolean m_mutable;
-   private int m_width;
-   private int m_height;
-   private byte[] m_image;
-   private byte[] m_palette;
+public class Image2D extends Object3D
+{
+	public static final byte ALPHA              = 96;
+	public static final byte LUMINANCE 	        = 97;
+	public static final byte LUMINANCE_ALPHA    = 98;
+	public static final byte RGB 	            = 99;
+	public static final byte RGBA 	            = 100;
 
-   public Image2D(int format, BufferedImage image) {
-      if (format >= 96 && format <= 100) {
-         this.m_format = format;
-         this.setImage(image);
-      } else {
-         throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
-      }
-   }
+	// The image data.
+	private BufferedImage m_originalImage, m_nativeImage;
+	// The pixel format.
+	private int m_format;
+	// Flag indicating whether the image can be modified.
+	private boolean m_mutable;
+	// The width of the image.
+	private int m_width;
+	// The height of the image.
+	private int m_height;
+	// The image data.
+	private byte m_image[];
+	// The palette image.
+	private byte m_palette[];
 
-   public Image2D(int format, int width, int height, byte[] image) {
-      if (width <= 0) {
-         throw new IllegalArgumentException("Image2D: width <= 0");
-      } else if (height <= 0) {
-         throw new IllegalArgumentException("Image2D: height <= 0");
-      } else if (format >= 96 && format <= 100) {
-         int bpp = 1;
-         if (format == 98) {
-            bpp = 2;
-         } else if (format == 99) {
-            bpp = 3;
-         } else if (format == 100) {
-            bpp = 4;
-         }
+    ////////// Methods part of M3G Specification //////////
+	
+	public Image2D(int format, BufferedImage image)
+	{
+		if (format < ALPHA || format > RGBA)
+			throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
+		
+		m_format = format;
+		setImage(image);
+	}
 
-         if (image.length < width * height * bpp) {
-            throw new IllegalArgumentException("Image2D: image.length <  width*height*bpp");
-         } else {
-            this.m_format = format;
-            this.m_width = width;
-            this.m_height = height;
-            this.m_image = image;
-            this.m_palette = new byte[0];
-            this.m_mutable = false;
-            this.m_originalImage = this.createNativeImage();
-            this.m_nativeImage = this.createNativeImage();
-         }
-      } else {
-         throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
-      }
-   }
+	public Image2D(int format, int width, int height, byte image[])
+	{
+		if (width <= 0)
+			throw new IllegalArgumentException("Image2D: width <= 0");
+		if (height <= 0)
+			throw new IllegalArgumentException("Image2D: height <= 0");
+		if (format < ALPHA || format > RGBA)
+			throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
+		int bpp = 1;
+		if (format == LUMINANCE_ALPHA) bpp = 2;
+		else if (format==RGB) bpp = 3;
+		else if (format==RGBA) bpp = 4;
+		if (image.length < (width * height * bpp))
+			throw new IllegalArgumentException("Image2D: image.length <  width*height*bpp");
+		
+		m_format = format;
+		m_width = width;
+		m_height = height;
+		m_image = image;
+		m_palette = new byte[0];
+		m_mutable = false;
 
-   public Image2D(int format, int width, int height, byte[] image, byte[] palette) {
-      if (width <= 0) {
-         throw new IllegalArgumentException("Image2D: width <= 0");
-      } else if (height <= 0) {
-         throw new IllegalArgumentException("Image2D: height <= 0");
-      } else if (format >= 96 && format <= 100) {
-         if (image.length < width * height) {
-            throw new IllegalArgumentException("Image2D: image.length <  width*height");
-         } else {
-            int bpp = 1;
-            if (format == 98) {
-               bpp = 2;
-            } else if (format == 99) {
-               bpp = 3;
-            } else if (format == 100) {
-               bpp = 4;
-            }
+		m_originalImage = createNativeImage();
+		m_nativeImage = createNativeImage();
+	}
 
-            if (palette.length < 256 * bpp && palette.length % bpp != 0) {
-               throw new IllegalArgumentException("Image2D: (palette.length <  256*C) && ((palette.length % bpp) != 0), where C is the number of color components (for instance, 3 for RGB)");
-            } else {
-               this.m_format = format;
-               this.m_width = width;
-               this.m_height = height;
-               this.m_image = image;
-               if (palette.length > 256) {
-                  this.m_palette = new byte[palette.length];
-                  System.arraycopy(palette, 0, this.m_palette, 0, palette.length);
-               } else {
-                  this.m_palette = palette;
-               }
+	public Image2D(int format, int width, int height, byte image[], byte palette[])
+	{
+		if (width <= 0)
+			throw new IllegalArgumentException("Image2D: width <= 0");
+		if (height <= 0)
+			throw new IllegalArgumentException("Image2D: height <= 0");
+		if (format < ALPHA || format > RGBA)
+			throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
+		if (image.length < (width * height))
+			throw new IllegalArgumentException("Image2D: image.length <  width*height");
+		int bpp = 1;
+		if (format == LUMINANCE_ALPHA) bpp = 2;
+		else if (format == RGB) bpp = 3;
+		else if (format == RGBA) bpp = 4;
+		if (palette.length < (256 * bpp) && (palette.length % bpp) != 0)
+			throw new IllegalArgumentException("Image2D: (palette.length <  256*C) && ((palette.length % bpp) != 0), where C is the number of color components (for instance, 3 for RGB)");
 
-               this.m_mutable = false;
-               this.m_originalImage = this.createNativeImage();
-               this.m_nativeImage = this.createNativeImage();
-            }
-         }
-      } else {
-         throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
-      }
-   }
+		m_format = format;
+		m_width = width;
+		m_height = height;
+		m_image = image;
+		if (palette.length > 256)
+		{
+			//m_palette = new byte[256];
+			//System.arraycopy(palette, 0, this.m_palette, 0, 256);
+			m_palette = new byte[palette.length];
+			System.arraycopy(palette, 0, this.m_palette, 0, palette.length);
+		}
+		else m_palette = palette;
+		m_mutable = false;
 
-   public Image2D(int format, int width, int height) {
-      if (width <= 0) {
-         throw new IllegalArgumentException("Image2D: width <= 0");
-      } else if (height <= 0) {
-         throw new IllegalArgumentException("Image2D: height <= 0");
-      } else if (format >= 96 && format <= 100) {
-         this.m_format = format;
-         this.m_width = width;
-         this.m_height = height;
-         this.m_mutable = true;
-         this.m_originalImage = this.m_nativeImage = new BufferedImage(width, height, 2);
+		m_originalImage = createNativeImage();
+		m_nativeImage = createNativeImage();
+	}
 
-         for(int y = 0; y < height; ++y) {
-            for(int x = 0; x < width; ++x) {
-               this.m_originalImage.setRGB(x, y, -1);
-            }
-         }
+	public Image2D(int format,int width,int height)
+	{
+		if (width <= 0)
+			throw new IllegalArgumentException("Image2D: width <= 0");
+		if (height <= 0)
+			throw new IllegalArgumentException("Image2D: height <= 0");
+		if (format < ALPHA || format > RGBA)
+			throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
+		m_format = format;
+		m_width = width;
+		m_height = height;
+		m_mutable = true;
 
-      } else {
-         throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
-      }
-   }
+		m_originalImage = m_nativeImage =
+			new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		for (int y = 0; y < height; y++)
+			for (int x = 0; x < width; x++)
+				m_originalImage.setRGB(x, y, 0xffffffff);
+	}
 
-   public void set(int x, int y, int width, int height, byte[] image) {
-      if (image == null) {
-         throw new NullPointerException("Image2D: image is null");
-      } else if (!this.m_mutable) {
-         throw new IllegalStateException("Image2D: image is immutable");
-      } else if (x >= 0 && y >= 0 && width > 0 && height > 0) {
-         if (x + width <= this.m_width && y + height <= this.m_height) {
-            int bpp = 1;
-            if (this.m_format == 98) {
-               bpp = 2;
-            } else if (this.m_format == 99) {
-               bpp = 3;
-            } else if (this.m_format == 100) {
-               bpp = 4;
-            }
+	public void set(int x, int y, int width, int height, byte image[])
+	{
+		if (image == null)
+			throw new NullPointerException("Image2D: image is null");
+		if (! m_mutable)
+			throw new IllegalStateException("Image2D: image is immutable");
+		if ((x < 0) || (y < 0) || (width <= 0) || (height <= 0))
+			throw new IllegalArgumentException("Image2D: x < 0 or y < 0 or width <= 0 or height <= 0");
+		if (((x + width) > m_width) || ((y + height) > m_height))
+			throw new IllegalArgumentException("");
+		int bpp = 1;
+		if (m_format == LUMINANCE_ALPHA) bpp = 2;
+		else if (m_format == RGB) bpp = 3;
+		else if (m_format == RGBA) bpp = 4;
+		if (image.length < width * height * bpp)
+			throw new IllegalArgumentException("");
+		
+		Logger.global.logp(Level.WARNING, "com.wizzer.m3g.Image2D", "set(int x,int y,int width,int height,byte image[])", "Not implemented");
+	}
 
-            if (image.length < width * height * bpp) {
-               throw new IllegalArgumentException("");
-            } else {
-               Logger.global.logp(Level.WARNING, "com.wizzer.m3g.Image2D", "set(int x,int y,int width,int height,byte image[])", "Not implemented");
-            }
-         } else {
-            throw new IllegalArgumentException("");
-         }
-      } else {
-         throw new IllegalArgumentException("Image2D: x < 0 or y < 0 or width <= 0 or height <= 0");
-      }
-   }
+	public boolean isMutable()
+	{
+		return m_mutable;
+	}
 
-   public boolean isMutable() {
-      return this.m_mutable;
-   }
+	public int getFormat()
+	{
+		return m_format;
+	}
 
-   public int getFormat() {
-      return this.m_format;
-   }
+	public int getWidth()
+	{
+		return m_width;
+	}
 
-   public int getWidth() {
-      return this.m_width;
-   }
+	public int getHeight()
+	{
+		return m_height;
+	}
 
-   public int getHeight() {
-      return this.m_height;
-   }
+	public int getReferences(Object3D[] references) throws IllegalArgumentException 
+	{
+		int numReferences = super.getReferences(references);
+    	return numReferences;
+	}
+	
+    ////////// Methods not part of M3G Specification //////////
 
-   public int getReferences(Object3D[] references) throws IllegalArgumentException {
-      int numReferences = super.getReferences(references);
-      return numReferences;
-   }
+	Image2D() {}
 
-   Image2D() {
-   }
+	public void setFormat(int format)
+	{
+		if (format < ALPHA || format > RGBA)
+			throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
+		m_format = format;
+		setImage(m_originalImage);
+	}
 
-   public void setFormat(int format) {
-      if (format >= 96 && format <= 100) {
-         this.m_format = format;
-         this.setImage(this.m_originalImage);
-      } else {
-         throw new IllegalArgumentException("Image2D: format is not one of the symbolic constants");
-      }
-   }
+	public void setImage(BufferedImage image)
+	{
+		if (isMutable())
+			throw new IllegalStateException("Image2D: this image is mutable");
+		int bpp = 1;
+		if (m_format == LUMINANCE_ALPHA) bpp = 2;
+		else if (m_format == RGB) bpp = 3;
+		else if (m_format == RGBA) bpp = 4;
+		m_width = image.getWidth();
+		m_height = image.getHeight();
+		ColorModel cm = image.getColorModel();
 
-   public void setImage(BufferedImage image) {
-      if (this.isMutable()) {
-         throw new IllegalStateException("Image2D: this image is mutable");
-      } else {
-         int bpp = 1;
-         if (this.m_format == 98) {
-            bpp = 2;
-         } else if (this.m_format == 99) {
-            bpp = 3;
-         } else if (this.m_format == 100) {
-            bpp = 4;
-         }
+		if (cm instanceof IndexColorModel)
+		{
+			IndexColorModel icm = (IndexColorModel)cm;
+			m_palette = new byte[icm.getMapSize()*bpp];
+			for (int i = 0, ip = 0; i < icm.getMapSize(); i++)
+			{
+				if (m_format == ALPHA || m_format == LUMINANCE || m_format == LUMINANCE_ALPHA)
+				{
+					byte value = (byte)((icm.getRed(i) + icm.getGreen(i) + icm.getBlue(i)) / 3);
+					m_palette[ip++] = value;
+					if (m_format == LUMINANCE_ALPHA) m_palette[ip++]=value;
+				}
+				else
+				{
+					m_palette[ip++] = (byte)icm.getRed(i);
+					m_palette[ip++] = (byte)icm.getGreen(i);
+					m_palette[ip++] = (byte)icm.getBlue(i);
+					if (m_format == RGBA)
+						m_palette[ip++] = (byte)icm.getAlpha(i);
+				}
+			}
 
-         this.m_width = image.getWidth();
-         this.m_height = image.getHeight();
-         ColorModel cm = image.getColorModel();
-         int i;
-         int y;
-         int x;
-         if (cm instanceof IndexColorModel) {
-            IndexColorModel icm = (IndexColorModel)cm;
-            this.m_palette = new byte[icm.getMapSize() * bpp];
-            i = 0;
+			Raster raster = image.getData();
+			m_image = new byte[m_width*m_height];
+			for (int y = 0; y < m_height; y++)
+				for (int x = 0; x < m_width; x++)
+					m_image[x + (y * m_width)] = (byte)raster.getSample(x, y, 0);
+		}
+		else
+		{
+			m_palette = new byte[0];
+			m_image = new byte[m_width * m_height * bpp];
+			int i = 0;
+			for (int y = 0; y < m_height; y++)
+			{
+				for (int x = 0; x < m_width; x++)
+				{
+					int rgb = image.getRGB(x,y);
+					int a = (rgb >> 24)&0xff;
+					int r = (rgb >> 16)&0xff;
+					int g = (rgb >> 8)&0xff;
+					int b = rgb & 0xff;
+					//
+					if (m_format == ALPHA || m_format == LUMINANCE || m_format == LUMINANCE_ALPHA)
+					{
+						byte value = (byte)((r + g + b) / 3);
+						m_image[i++] = value;
+						if (m_format == LUMINANCE_ALPHA) m_image[i++] = value;
+					}
+					else
+					{
+						m_image[i++] = (byte)r;
+						m_image[i++] = (byte)g;
+						m_image[i++] = (byte)b;
+						if (m_format==RGBA)
+							m_image[i++]=(byte)a;
+					}
+				}
+			}
+		}
 
-            for(y = 0; i < icm.getMapSize(); ++i) {
-               if (this.m_format != 96 && this.m_format != 97 && this.m_format != 98) {
-                  this.m_palette[y++] = (byte)icm.getRed(i);
-                  this.m_palette[y++] = (byte)icm.getGreen(i);
-                  this.m_palette[y++] = (byte)icm.getBlue(i);
-                  if (this.m_format == 100) {
-                     this.m_palette[y++] = (byte)icm.getAlpha(i);
-                  }
-               } else {
-                  byte value = (byte)((icm.getRed(i) + icm.getGreen(i) + icm.getBlue(i)) / 3);
-                  this.m_palette[y++] = value;
-                  if (this.m_format == 98) {
-                     this.m_palette[y++] = value;
-                  }
-               }
-            }
+		m_originalImage = image;
+		m_nativeImage = createNativeImage();
+	}
 
-            Raster raster = image.getData();
-            this.m_image = new byte[this.m_width * this.m_height];
+	public BufferedImage getImage()
+	{
+		return m_nativeImage;
+	}
 
-            for(y = 0; y < this.m_height; ++y) {
-               for(x = 0; x < this.m_width; ++x) {
-                  this.m_image[x + y * this.m_width] = (byte)raster.getSample(x, y, 0);
-               }
-            }
-         } else {
-            this.m_palette = new byte[0];
-            this.m_image = new byte[this.m_width * this.m_height * bpp];
-            int i = 0;
+	private BufferedImage createNativeImage()
+	{
+		BufferedImage nativeImage = null;
+		// Bytes per pixel.
+		int bpp = 1;
+		if (m_format == LUMINANCE_ALPHA) bpp = 2;
+		else if (m_format == RGB) bpp = 3;
+		else if (m_format == RGBA) bpp = 4;
 
-            for(i = 0; i < this.m_height; ++i) {
-               for(y = 0; y < this.m_width; ++y) {
-                  x = image.getRGB(y, i);
-                  int a = x >> 24 & 255;
-                  int r = x >> 16 & 255;
-                  int g = x >> 8 & 255;
-                  int b = x & 255;
-                  if (this.m_format != 96 && this.m_format != 97 && this.m_format != 98) {
-                     this.m_image[i++] = (byte)r;
-                     this.m_image[i++] = (byte)g;
-                     this.m_image[i++] = (byte)b;
-                     if (this.m_format == 100) {
-                        this.m_image[i++] = (byte)a;
-                     }
-                  } else {
-                     byte value = (byte)((r + g + b) / 3);
-                     this.m_image[i++] = value;
-                     if (this.m_format == 98) {
-                        this.m_image[i++] = value;
-                     }
-                  }
-               }
-            }
-         }
+		if (m_palette.length > 0)
+		{
+			byte r[] = new byte[m_palette.length / bpp];
+			byte g[] = new byte[m_palette.length / bpp];
+			byte b[] = new byte[m_palette.length / bpp];
+			byte a[] = new byte[m_palette.length / bpp];
+			Arrays.fill(a, (byte)255);
+			for (int i = 0, ip = 0; i < r.length; i++)
+			{
+				if (m_format == ALPHA || m_format == LUMINANCE || m_format == LUMINANCE_ALPHA)
+				{
+					r[i] = g[i] = b[i] = m_palette[ip++];
+					if (m_format == ALPHA || m_format == LUMINANCE_ALPHA) a[i] = r[i];
+					if (m_format == LUMINANCE_ALPHA) ip++;
+				}
+				else
+				{
+					r[i] = m_palette[ip++];
+					g[i] = m_palette[ip++];
+					b[i] = m_palette[ip++];
+					if (m_format == RGBA)
+						a[i] = m_palette[ip++];
+				}
+			}
+			IndexColorModel icm = new IndexColorModel(8, r.length, r, g, b, a);
+			nativeImage = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_BYTE_INDEXED,icm);
+			for (int y = 0; y < m_height; y++)
+			{
+				for (int x = 0; x < m_width; x++)
+				{
+					int index = m_image[x + (y * m_width)] & 0xff;
+					nativeImage.setRGB(x, y, ((a[index] & 0xff) << 24) | ((r[index] & 0xff) << 16) | ((g[index] & 0xff) << 8) | (b[index] & 0xff));
+				}
+			}
+		}
+		else
+		{
+			nativeImage = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+			int i = 0;
+			for (int y = 0; y < m_height; y++)
+			{
+				for (int x = 0; x < m_width; x++)
+				{
+					int a = 255,r = 255,g = 255,b = 255;
 
-         this.m_originalImage = image;
-         this.m_nativeImage = this.createNativeImage();
-      }
-   }
+					if (m_format == ALPHA || m_format == LUMINANCE || m_format == LUMINANCE_ALPHA)
+					{
+						r = g = b = (m_image[i++] & 0xff);
+						if (m_format == ALPHA || m_format == LUMINANCE_ALPHA) a = r;
+						if (m_format == LUMINANCE_ALPHA) i++;
+					}
+					else
+					{
+						r = (m_image[i++] & 0xff);
+						g = (m_image[i++] & 0xff);
+						b = (m_image[i++] & 0xff);
+						if (m_format == RGBA) a = (m_image[i++] & 0xff);
+					}
 
-   public BufferedImage getImage() {
-      return this.m_nativeImage;
-   }
+					nativeImage.setRGB(x, y, (a<<24)|(r<<16)|(g<<8)|b);
+				}
+			}
+		}
 
-   private BufferedImage createNativeImage() {
-      BufferedImage nativeImage = null;
-      int bpp = 1;
-      if (this.m_format == 98) {
-         bpp = 2;
-      } else if (this.m_format == 99) {
-         bpp = 3;
-      } else if (this.m_format == 100) {
-         bpp = 4;
-      }
+		return nativeImage;
+	}
 
-      int r;
-      int g;
-      int b;
-      if (this.m_palette.length > 0) {
-         byte[] r = new byte[this.m_palette.length / bpp];
-         byte[] g = new byte[this.m_palette.length / bpp];
-         byte[] b = new byte[this.m_palette.length / bpp];
-         byte[] a = new byte[this.m_palette.length / bpp];
-         Arrays.fill(a, (byte)-1);
-         r = 0;
+	public int getObjectType()
+	{
+		return IMAGE2D;
+	}
 
-         for(g = 0; r < r.length; ++r) {
-            if (this.m_format != 96 && this.m_format != 97 && this.m_format != 98) {
-               r[r] = this.m_palette[g++];
-               g[r] = this.m_palette[g++];
-               b[r] = this.m_palette[g++];
-               if (this.m_format == 100) {
-                  a[r] = this.m_palette[g++];
-               }
-            } else {
-               r[r] = g[r] = b[r] = this.m_palette[g++];
-               if (this.m_format == 96 || this.m_format == 98) {
-                  a[r] = r[r];
-               }
+	/**
+	 * Read field data.
+	 * 
+	 * @param is The input stream to read from.
+	 * @param table The cache of referenced objects.
+	 * 
+	 * @throws IOException This exception is thrown if an error occurs
+	 * reading the data.
+	 */
+	protected void unmarshall(M3GInputStream is, ArrayList table) throws IOException
+	{
+		super.unmarshall(is,table);
 
-               if (this.m_format == 98) {
-                  ++g;
-               }
-            }
-         }
+		// Read format
+		m_format = is.readByte();
+		if (m_format < ALPHA || m_format > RGBA)
+			throw new IOException("Image2D.format=" + m_format);
+		// Read isMutable
+		m_mutable = is.readBoolean();
+		// Read width
+		m_width = (int)is.readUInt32();
+		// Read hdight
+		m_height = (int)is.readUInt32();
+		if (! m_mutable)
+		{
+			// Read palette
+			m_palette = new byte[(int)is.readUInt32()];
+			is.read(m_palette);
+			// Read pixels
+			m_image = new byte[(int)is.readUInt32()];
+			is.read(m_image);
+		}
 
-         IndexColorModel icm = new IndexColorModel(8, r.length, r, g, b, a);
-         nativeImage = new BufferedImage(this.getWidth(), this.getHeight(), 13, icm);
+		m_originalImage = createNativeImage();
+		m_nativeImage = createNativeImage();
+	}
 
-         for(g = 0; g < this.m_height; ++g) {
-            for(b = 0; b < this.m_width; ++b) {
-               int index = this.m_image[b + g * this.m_width] & 255;
-               nativeImage.setRGB(b, g, (a[index] & 255) << 24 | (r[index] & 255) << 16 | (g[index] & 255) << 8 | b[index] & 255);
-            }
-         }
-      } else {
-         nativeImage = new BufferedImage(this.getWidth(), this.getHeight(), 2);
-         int i = 0;
+	/**
+	 * Write field data.
+	 * 
+	 * @param os The output stream to write to.
+	 * @param table The cache of referenced objects.
+	 * 
+	 * @throws IOException This exception is thrown if an error occurs
+	 * writing the data.
+	 */
+	protected void marshall(M3GOutputStream os, ArrayList table) throws IOException
+	{
+		super.marshall(os,table);
 
-         for(int y = 0; y < this.m_height; ++y) {
-            for(int x = 0; x < this.m_width; ++x) {
-               int a = 255;
-               int r = true;
-               int g = true;
-               int b = true;
-               if (this.m_format != 96 && this.m_format != 97 && this.m_format != 98) {
-                  r = this.m_image[i++] & 255;
-                  g = this.m_image[i++] & 255;
-                  b = this.m_image[i++] & 255;
-                  if (this.m_format == 100) {
-                     a = this.m_image[i++] & 255;
-                  }
-               } else {
-                  r = g = b = this.m_image[i++] & 255;
-                  if (this.m_format == 96 || this.m_format == 98) {
-                     a = r;
-                  }
+		// Write format
+		os.writeByte(m_format);
+		// Write isMutable
+		os.writeBoolean(m_mutable);
+		// Write width
+		os.writeUInt32(m_width);
+		// Write height
+		os.writeUInt32(m_height);
+		if (! m_mutable)
+		{
+			// Write palette
+			os.writeUInt32(m_palette.length);
+			os.write(m_palette);
+			// Write pixels
+			os.writeUInt32(m_image.length);
+			os.write(m_image);
+		}
+	}
+	
+	ByteBuffer getPixels()
+	{
+        int bpp = getBytesPerPixel();
+        ByteBuffer pixels = BufferUtil.newByteBuffer(m_width * m_height * bpp);
+        if (m_palette.length > 0)
+        {
+        	// Using a palette, image contains indices into palette.
+			byte r[] = new byte[m_palette.length / bpp];
+			byte g[] = new byte[m_palette.length / bpp];
+			byte b[] = new byte[m_palette.length / bpp];
+			byte a[] = new byte[m_palette.length / bpp];
+			Arrays.fill(a, (byte)255);
+			for (int i = 0, ip = 0; i < r.length; i++)
+			{
+				if (m_format == ALPHA || m_format == LUMINANCE || m_format == LUMINANCE_ALPHA)
+				{
+					r[i] = g[i] = b[i] = m_palette[ip++];
+					if (m_format == ALPHA || m_format == LUMINANCE_ALPHA) a[i] = r[i];
+					if (m_format == LUMINANCE_ALPHA) ip++;
+				}
+				else
+				{
+					r[i] = m_palette[ip++];
+					g[i] = m_palette[ip++];
+					b[i] = m_palette[ip++];
+					if (m_format == RGBA)
+						a[i] = m_palette[ip++];
+				}
+			}
 
-                  if (this.m_format == 98) {
-                     ++i;
-                  }
-               }
+			for (int y = 0; y < m_height; y++)
+			{
+				for (int x = 0; x < m_width; x++)
+				{
+					int index = m_image[x + (y * m_width)] & 0xff;
+					pixels.put((byte)(r[index] & 0xff));
+					pixels.put((byte)(g[index] & 0xff));
+					pixels.put((byte)(b[index] & 0xff));
+					if (m_format == RGBA)
+						pixels.put((byte)(a[index] & 0xff));
+				}
+			}
 
-               nativeImage.setRGB(x, y, a << 24 | r << 16 | g << 8 | b);
-            }
-         }
-      }
+        } else
+        {
+        	// Not using a palette, image contains RGBA values.
+		    pixels.put(m_image, 0, m_width * m_height * bpp);
+        }
+		pixels.flip();
+		
+		return pixels;
+	}
 
-      return nativeImage;
-   }
-
-   public int getObjectType() {
-      return 10;
-   }
-
-   protected void unmarshall(M3GInputStream is, ArrayList table) throws IOException {
-      super.unmarshall(is, table);
-      this.m_format = is.readByte();
-      if (this.m_format >= 96 && this.m_format <= 100) {
-         this.m_mutable = is.readBoolean();
-         this.m_width = (int)is.readUInt32();
-         this.m_height = (int)is.readUInt32();
-         if (!this.m_mutable) {
-            this.m_palette = new byte[(int)is.readUInt32()];
-            is.read(this.m_palette);
-            this.m_image = new byte[(int)is.readUInt32()];
-            is.read(this.m_image);
-         }
-
-         this.m_originalImage = this.createNativeImage();
-         this.m_nativeImage = this.createNativeImage();
-      } else {
-         throw new IOException("Image2D.format=" + this.m_format);
-      }
-   }
-
-   protected void marshall(M3GOutputStream os, ArrayList table) throws IOException {
-      super.marshall(os, table);
-      os.writeByte(this.m_format);
-      os.writeBoolean(this.m_mutable);
-      os.writeUInt32((long)this.m_width);
-      os.writeUInt32((long)this.m_height);
-      if (!this.m_mutable) {
-         os.writeUInt32((long)this.m_palette.length);
-         os.write(this.m_palette);
-         os.writeUInt32((long)this.m_image.length);
-         os.write(this.m_image);
-      }
-
-   }
-
-   ByteBuffer getPixels() {
-      int bpp = this.getBytesPerPixel();
-      ByteBuffer pixels = BufferUtil.newByteBuffer(this.m_width * this.m_height * bpp);
-      if (this.m_palette.length > 0) {
-         byte[] r = new byte[this.m_palette.length / bpp];
-         byte[] g = new byte[this.m_palette.length / bpp];
-         byte[] b = new byte[this.m_palette.length / bpp];
-         byte[] a = new byte[this.m_palette.length / bpp];
-         Arrays.fill(a, (byte)-1);
-         int y = 0;
-
-         int x;
-         for(x = 0; y < r.length; ++y) {
-            if (this.m_format != 96 && this.m_format != 97 && this.m_format != 98) {
-               r[y] = this.m_palette[x++];
-               g[y] = this.m_palette[x++];
-               b[y] = this.m_palette[x++];
-               if (this.m_format == 100) {
-                  a[y] = this.m_palette[x++];
-               }
-            } else {
-               r[y] = g[y] = b[y] = this.m_palette[x++];
-               if (this.m_format == 96 || this.m_format == 98) {
-                  a[y] = r[y];
-               }
-
-               if (this.m_format == 98) {
-                  ++x;
-               }
-            }
-         }
-
-         for(y = 0; y < this.m_height; ++y) {
-            for(x = 0; x < this.m_width; ++x) {
-               int index = this.m_image[x + y * this.m_width] & 255;
-               pixels.put((byte)(r[index] & 255));
-               pixels.put((byte)(g[index] & 255));
-               pixels.put((byte)(b[index] & 255));
-               if (this.m_format == 100) {
-                  pixels.put((byte)(a[index] & 255));
-               }
-            }
-         }
-      } else {
-         pixels.put(this.m_image, 0, this.m_width * this.m_height * bpp);
-      }
-
-      pixels.flip();
-      return pixels;
-   }
-
-   int getBytesPerPixel() {
-      if (this.m_format == 100) {
-         return 4;
-      } else if (this.m_format == 99) {
-         return 3;
-      } else {
-         return this.m_format == 98 ? 2 : 1;
-      }
-   }
-
-   int getGLFormat() {
-      if (this.m_format == 100) {
-         return 6408;
-      } else if (this.m_format == 99) {
-         return 6407;
-      } else if (this.m_format == 98) {
-         return 6410;
-      } else if (this.m_format == 97) {
-         return 6409;
-      } else if (this.m_format == 96) {
-         return 6406;
-      } else {
-         throw new RuntimeException("Invalid format on image");
-      }
-   }
+	int getBytesPerPixel()
+	{
+		if (m_format == RGBA)
+			return 4;
+		else if (m_format == RGB)
+			return 3;
+		else if (m_format == LUMINANCE_ALPHA)
+			return 2;
+		else
+			return 1;
+	}
+	
+	int getGLFormat()
+	{
+		if (m_format == RGBA)
+			return GL.GL_RGBA;
+		else if (m_format == RGB)
+			return GL.GL_RGB;
+		else if (m_format == LUMINANCE_ALPHA)
+			return GL.GL_LUMINANCE_ALPHA;
+		else if (m_format == LUMINANCE)
+			return GL.GL_LUMINANCE;
+		else if (m_format == ALPHA)
+			return GL.GL_ALPHA;
+		throw new RuntimeException("Invalid format on image");
+	}
 }

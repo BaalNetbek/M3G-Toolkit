@@ -1,252 +1,367 @@
+// COPYRIGHT_BEGIN
+//
+// Copyright (C) 2000-2008  Wizzer Works (msm@wizzerworks.com)
+// 
+// This file is part of the M3G Toolkit.
+//
+// The M3G Toolkit is free software; you can redistribute it and/or modify it
+// under the terms of the GNU Lesser General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
+// more details.
+//
+// You should have received a copy of the GNU Lesser General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+//
+// COPYRIGHT_END
+
+// Declare package.
 package com.wizzer.m3g;
 
-import com.wizzer.m3g.toolkit.util.Color;
-import java.io.IOException;
-import java.util.ArrayList;
+// Import standard Java classes.
+import java.io.*;
+import java.util.*;
+
+// Import JOGL classes.
 import javax.media.opengl.GL;
 
-public class Background extends Object3D {
-   public static final byte BORDER = 32;
-   public static final byte REPEAT = 33;
-   private int m_color = 0;
-   private Image2D m_image = null;
-   private int m_imageModeX;
-   private int m_imageModeY;
-   private int m_cropX;
-   private int m_cropY;
-   private int m_cropWidth;
-   private int m_cropHeight;
-   private boolean m_depthClearEnabled = true;
-   private boolean m_colorClearEnabled = true;
-   private Texture2D m_backgroundTexture = null;
+// Import M3G Toolkit classes.
+import com.wizzer.m3g.toolkit.util.Color;
 
-   public Background() {
-      this.m_imageModeX = this.m_imageModeY = 32;
-      this.m_cropX = this.m_cropY = this.m_cropWidth = this.m_cropHeight = 0;
-   }
+public class Background extends Object3D
+{
+	public static final byte BORDER = 32;
+	public static final byte REPEAT = 33;
 
-   public void setColorClearEnable(boolean enable) {
-      this.m_colorClearEnabled = enable;
-   }
+	// The current background color.
+	private int m_color;
+	// The current background image.
+	private Image2D m_image;
+	// The current background image repeat mode in the X dimension. 
+	private int m_imageModeX;
+	// The current background image repeat mode in the Y dimenstion.
+	private int m_imageModeY;
+	// The current cropping rectangle X offset.
+	private int m_cropX;
+	// The current cropping rectangle Y offset.
+	private int m_cropY;
+	// The current cropping rectangle width.
+	private int m_cropWidth;
+	// The current cropping rectangle height.
+	private int m_cropHeight;
+	// Flag indicating depth buffer clearing.
+	private boolean m_depthClearEnabled;
+	// Flag indicating color buffer clearing.
+	private boolean m_colorClearEnabled;
 
-   public boolean isColorClearEnabled() {
-      return this.m_colorClearEnabled;
-   }
+	// Used for rendering to JOGL.
+	private Texture2D m_backgroundTexture = null;
+	
+    ////////// Methods part of M3G Specification //////////
 
-   public void setDepthClearEnable(boolean enable) {
-      this.m_depthClearEnabled = enable;
-   }
+	public Background()
+	{
+		m_colorClearEnabled = true;
+		m_depthClearEnabled = true;
+		m_color = 0x00000000;
+		m_image = null;
+		m_imageModeX = m_imageModeY=BORDER;
+		m_cropX = m_cropY = m_cropWidth = m_cropHeight = 0;
+	}
 
-   public boolean isDepthClearEnabled() {
-      return this.m_depthClearEnabled;
-   }
+	public void setColorClearEnable(boolean enable)
+	{
+		m_colorClearEnabled = enable;
+	}
 
-   public void setColor(int ARGB) {
-      this.m_color = ARGB;
-   }
+	public boolean isColorClearEnabled()
+	{
+		return m_colorClearEnabled;
+	}
 
-   public int getColor() {
-      return this.m_color;
-   }
+	public void setDepthClearEnable(boolean enable)
+	{
+		m_depthClearEnabled = enable;
+	}
 
-   public void setImage(Image2D image) {
-      if (image != null && image.getFormat() != 99 && image.getFormat() != 100) {
-         throw new IllegalArgumentException("Background: image is not in RGB or RGBA format");
-      } else {
-         this.m_image = image;
-         if (image != null) {
-            this.setCrop(0, 0, image.getWidth(), image.getHeight());
-            this.m_backgroundTexture = null;
-         }
+	public boolean isDepthClearEnabled()
+	{
+		return m_depthClearEnabled;
+	}
 
-      }
-   }
+	public void setColor(int ARGB)
+	{
+		m_color = ARGB;
+	}
 
-   public Image2D getImage() {
-      return this.m_image;
-   }
+	public int getColor()
+	{
+		return m_color;
+	}
 
-   public void setImageMode(int modeX, int modeY) {
-      if ((modeX == 32 || modeX == 33) && (modeY == 32 || modeY == 33)) {
-         this.m_imageModeX = modeX;
-         this.m_imageModeY = modeY;
-      } else {
-         throw new IllegalArgumentException("Background: modeX or modeY is not one of the enumerated values");
-      }
-   }
+	public void setImage(Image2D image)
+	{
+		if (image != null && image.getFormat() != Image2D.RGB && image.getFormat() != Image2D.RGBA)
+			throw new IllegalArgumentException("Background: image is not in RGB or RGBA format");
+		
+		m_image = image;
+		if (image != null)
+		{
+			setCrop(0, 0, image.getWidth(), image.getHeight());
+			m_backgroundTexture = null;
+		}
+	}
 
-   public int getImageModeX() {
-      return this.m_imageModeX;
-   }
+	public Image2D getImage()
+	{
+		return m_image;
+	}
 
-   public int getImageModeY() {
-      return this.m_imageModeY;
-   }
+	public void setImageMode(int modeX, int modeY)
+	{
+		if ((modeX != BORDER && modeX != REPEAT) || 
+			(modeY != BORDER && modeY != REPEAT))
+			throw new IllegalArgumentException("Background: modeX or modeY is not one of the enumerated values");
 
-   public void setCrop(int cropX, int cropY, int width, int height) {
-      if (width < 0) {
-         throw new IllegalArgumentException("Background: width < 0");
-      } else if (height < 0) {
-         throw new IllegalArgumentException("Background: height < 0");
-      } else {
-         this.m_cropX = cropX;
-         this.m_cropY = cropY;
-         this.m_cropWidth = width;
-         this.m_cropHeight = height;
-      }
-   }
+		m_imageModeX = modeX;
+		m_imageModeY = modeY;
+	}
 
-   public int getCropX() {
-      return this.m_cropX;
-   }
+	public int getImageModeX()
+	{
+		return m_imageModeX;
+	}
 
-   public int getCropY() {
-      return this.m_cropY;
-   }
+	public int getImageModeY()
+	{
+		return m_imageModeY;
+	}
 
-   public int getCropWidth() {
-      return this.m_cropWidth;
-   }
+	public void setCrop(int cropX, int cropY, int width, int height)
+	{
+		if (width < 0)
+			throw new IllegalArgumentException("Background: width < 0");
+		if (height < 0)
+			throw new IllegalArgumentException("Background: height < 0");
 
-   public int getCropHeight() {
-      return this.m_cropHeight;
-   }
+		m_cropX = cropX;
+		m_cropY = cropY;
+		m_cropWidth = width;
+		m_cropHeight = height;
+	}
 
-   public int getReferences(Object3D[] references) throws IllegalArgumentException {
-      int numReferences = super.getReferences(references);
-      if (this.m_image != null) {
-         if (references != null) {
-            references[numReferences] = this.m_image;
-         }
+	public int getCropX()
+	{
+		return m_cropX;
+	}
 
-         ++numReferences;
-      }
+	public int getCropY()
+	{
+		return m_cropY;
+	}
 
-      return numReferences;
-   }
+	public int getCropWidth()
+	{
+		return m_cropWidth;
+	}
 
-   public int getObjectType() {
-      return 4;
-   }
+	public int getCropHeight()
+	{
+		return m_cropHeight;
+	}
 
-   protected void unmarshall(M3GInputStream is, ArrayList table) throws IOException {
-      super.unmarshall(is, table);
-      this.setColor(is.readColorRGBA());
-      long index = is.readObjectIndex();
-      if (index != 0L) {
-         M3GObject obj = this.getObjectAtIndex(table, index, 10);
-         if (obj == null) {
-            throw new IOException("Background:image-index = " + index);
-         }
+	public int getReferences(Object3D[] references) throws IllegalArgumentException 
+	{
+		int numReferences = super.getReferences(references);
+		
+		if (m_image != null)
+		{
+			if (references != null)
+				references[numReferences] = m_image;
+			++numReferences;
+		}
+		
+		return numReferences;
+	}
+	
+	////////// Methods not part of M3G Specification //////////
 
-         this.setImage((Image2D)obj);
-      }
+	public int getObjectType()
+	{
+		return BACKGROUND;
+	}
 
-      this.setImageMode(is.readByte(), is.readByte());
-      this.setCrop((int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32());
-      this.setDepthClearEnable(is.readBoolean());
-      this.setColorClearEnable(is.readBoolean());
-   }
+	/**
+	 * Read field data.
+	 * 
+	 * @param is The input stream to read from.
+	 * @param table The cache of referenced objects.
+	 * 
+	 * @throws IOException This exception is thrown if an error occurs
+	 * reading the data.
+	 */
+	protected void unmarshall(M3GInputStream is, ArrayList table) throws IOException
+	{
+		super.unmarshall(is, table);
 
-   protected void marshall(M3GOutputStream os, ArrayList table) throws IOException {
-      super.marshall(os, table);
-      os.writeColorRGBA(this.m_color);
-      if (this.m_image != null) {
-         int index = table.indexOf(this.m_image);
-         if (index <= 0) {
-            throw new IOException("Background:image-index = " + index);
-         }
+		// Read backgroundColor
+		setColor(is.readColorRGBA());
+		// Read backgroundImage
+		long index = is.readObjectIndex();
+		if (index != 0)
+		{
+			M3GObject obj = getObjectAtIndex(table, index, IMAGE2D);
+			if (obj != null)
+				setImage((Image2D)obj);
+			else
+				throw new IOException("Background:image-index = " + index);
+		}
+		// Read backgroundImageModeX and backgroundImageModeY
+		setImageMode(is.readByte(), is.readByte());
+		// Read cropX, cropY, cropWidth and cropHeight
+		setCrop((int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32());
+		// Read depthClearEnabled
+		setDepthClearEnable(is.readBoolean());
+		// Read colorClearEnabled
+		setColorClearEnable(is.readBoolean());
+	}
 
-         os.writeObjectIndex((long)index);
-      } else {
-         os.writeObjectIndex(0L);
-      }
+	/**
+	 * Write field data.
+	 * 
+	 * @param os The output stream to write to.
+	 * @param table The cache of referenced objects.
+	 * 
+	 * @throws IOException This exception is thrown if an error occurs
+	 * writing the data.
+	 */
+	protected void marshall(M3GOutputStream os, ArrayList table) throws IOException
+	{
+		super.marshall(os,table);
 
-      os.writeByte(this.m_imageModeX);
-      os.writeByte(this.m_imageModeY);
-      os.writeInt32(this.m_cropX);
-      os.writeInt32(this.m_cropY);
-      os.writeInt32(this.m_cropWidth);
-      os.writeInt32(this.m_cropHeight);
-      os.writeBoolean(this.m_depthClearEnabled);
-      os.writeBoolean(this.m_colorClearEnabled);
-   }
+		// Write backgroundColor
+		os.writeColorRGBA(m_color);
+		// Write backgroundImage
+		if (m_image != null)
+		{
+			int index = table.indexOf(m_image);
+			if (index > 0)
+				os.writeObjectIndex(index);
+			else
+				throw new IOException("Background:image-index = " + index);
+		}
+		else os.writeObjectIndex(0);
+		// Write backgroundImageModeX
+		os.writeByte(m_imageModeX);
+		// Write backgroundImageModeY
+		os.writeByte(m_imageModeY);
+		// Write cropX
+		os.writeInt32(m_cropX);
+		// Write cropY
+		os.writeInt32(m_cropY);
+		// Write cropWidth
+		os.writeInt32(m_cropWidth);
+		// Write cropHeight
+		os.writeInt32(m_cropHeight);
+		// Write depthClearEnabled
+		os.writeBoolean(m_depthClearEnabled);
+		// Write colorClearEnabled
+		os.writeBoolean(m_colorClearEnabled);
+	}
 
-   protected void buildReferenceTable(ArrayList table) {
-      if (this.m_image != null) {
-         this.m_image.buildReferenceTable(table);
-      }
+	/**
+	 * Build the reference table cache.
+	 * 
+	 * @param table The reference table cache.
+	 */
+	protected void buildReferenceTable(ArrayList table)
+	{
+		if (m_image != null)
+			m_image.buildReferenceTable(table);
 
-      super.buildReferenceTable(table);
-   }
+		super.buildReferenceTable(table);
+	}
+	
+	public void setupGL(GL gl)
+	{
+        int clearBits = 0;
 
-   public void setupGL(GL gl) {
-      int clearBits = 0;
-      Color c = new Color(this.m_color);
-      gl.glClearColor(c.m_r, c.m_g, c.m_b, c.m_a);
-      if (this.m_colorClearEnabled) {
-         clearBits |= 16384;
-      }
+		Color c = new Color(m_color);
+        gl.glClearColor(c.m_r, c.m_g, c.m_b, c.m_a);
+        
+        if (m_colorClearEnabled)
+        	clearBits |= GL.GL_COLOR_BUFFER_BIT;
+        if (m_depthClearEnabled)
+        	clearBits |= GL.GL_DEPTH_BUFFER_BIT;
+	        
+        if (clearBits != 0)
+        	gl.glClear(clearBits);		
 
-      if (this.m_depthClearEnabled) {
-         clearBits |= 256;
-      }
+        if (m_image != null)
+		{
+			if (m_backgroundTexture == null)
+			{
+				m_backgroundTexture = new Texture2D(m_image);
+				m_backgroundTexture.setFiltering(Texture2D.FILTER_LINEAR,
+		                             Texture2D.FILTER_LINEAR);
+				m_backgroundTexture.setWrapping(Texture2D.WRAP_CLAMP,
+		                            Texture2D.WRAP_CLAMP);
+				m_backgroundTexture.setBlending(Texture2D.FUNC_REPLACE);
+			}
+			
+			gl.glMatrixMode (GL.GL_MODELVIEW);
+			gl.glPushMatrix ();
+			gl.glLoadIdentity ();
+			gl.glMatrixMode (GL.GL_PROJECTION);
+			gl.glPushMatrix ();
+			gl.glLoadIdentity ();
+			
+			gl.glColorMask(true, true, true, true);
+			gl.glDepthMask(false);
+			gl.glDisable(GL.GL_LIGHTING);
+			gl.glDisable(GL.GL_CULL_FACE); 
+			gl.glDisable(GL.GL_BLEND); 
 
-      if (clearBits != 0) {
-         gl.glClear(clearBits);
-      }
+			Graphics3D.getInstance().disableTextureUnits(); 
 
-      if (this.m_image != null) {
-         if (this.m_backgroundTexture == null) {
-            this.m_backgroundTexture = new Texture2D(this.m_image);
-            this.m_backgroundTexture.setFiltering(209, 209);
-            this.m_backgroundTexture.setWrapping(240, 240);
-            this.m_backgroundTexture.setBlending(228);
-         }
+			gl.glActiveTexture(GL.GL_TEXTURE0);
+			m_backgroundTexture.setupGL(gl, new float[] {1,0,0,0});
+			
+			// Calculate cropping.
+			int w = Graphics3D.getInstance().getViewportWidth();
+			int h = Graphics3D.getInstance().getViewportHeight();
+			
+			if (m_cropWidth <= 0)
+				m_cropWidth = w;
+			if (m_cropHeight <= 0)
+				m_cropHeight = h;
+			
+			float u0 = (float)m_cropX / (float)w;
+			float u1 = u0 + (float)m_cropWidth / (float)w;
+			float v0 = (float)m_cropY / (float)h;
+			float v1 = v0 + (float)m_cropHeight / (float)h;
+			
+	        gl.glBegin(GL.GL_QUADS);        // Draw A Quad
+	        gl.glTexCoord2f(u0, u0);	
+	        gl.glVertex3f(-1.0f, 1.0f, 0);	// Top Left
+	        gl.glTexCoord2f(u1, v0);	
+	        gl.glVertex3f(1.0f, 1.0f, 0);	// Top Right
+	        gl.glTexCoord2f(u1, v1);	
+	        gl.glVertex3f(1.0f, -1.0f, 0);	// Bottom Right
+	        gl.glTexCoord2f(u0, v1);	
+	        gl.glVertex3f(-1.0f, -1.0f, 0);	// Bottom Left
+	        gl.glEnd();	
 
-         gl.glMatrixMode(5888);
-         gl.glPushMatrix();
-         gl.glLoadIdentity();
-         gl.glMatrixMode(5889);
-         gl.glPushMatrix();
-         gl.glLoadIdentity();
-         gl.glColorMask(true, true, true, true);
-         gl.glDepthMask(false);
-         gl.glDisable(2896);
-         gl.glDisable(2884);
-         gl.glDisable(3042);
-         Graphics3D.getInstance().disableTextureUnits();
-         gl.glActiveTexture(33984);
-         this.m_backgroundTexture.setupGL(gl, new float[]{1.0F, 0.0F, 0.0F, 0.0F});
-         int w = Graphics3D.getInstance().getViewportWidth();
-         int h = Graphics3D.getInstance().getViewportHeight();
-         if (this.m_cropWidth <= 0) {
-            this.m_cropWidth = w;
-         }
-
-         if (this.m_cropHeight <= 0) {
-            this.m_cropHeight = h;
-         }
-
-         float u0 = (float)this.m_cropX / (float)w;
-         float u1 = u0 + (float)this.m_cropWidth / (float)w;
-         float v0 = (float)this.m_cropY / (float)h;
-         float v1 = v0 + (float)this.m_cropHeight / (float)h;
-         gl.glBegin(7);
-         gl.glTexCoord2f(u0, u0);
-         gl.glVertex3f(-1.0F, 1.0F, 0.0F);
-         gl.glTexCoord2f(u1, v0);
-         gl.glVertex3f(1.0F, 1.0F, 0.0F);
-         gl.glTexCoord2f(u1, v1);
-         gl.glVertex3f(1.0F, -1.0F, 0.0F);
-         gl.glTexCoord2f(u0, v1);
-         gl.glVertex3f(-1.0F, -1.0F, 0.0F);
-         gl.glEnd();
-         gl.glPopMatrix();
-         gl.glMatrixMode(5888);
-         gl.glPopMatrix();
-         gl.glDisable(3553);
-      }
-
-   }
+	        gl.glPopMatrix();
+	        gl.glMatrixMode (GL.GL_MODELVIEW);
+	        gl.glPopMatrix();
+	        
+	        gl.glDisable(GL.GL_TEXTURE_2D);
+		}
+	}
 }

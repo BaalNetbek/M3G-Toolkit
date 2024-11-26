@@ -1,219 +1,327 @@
+// COPYRIGHT_BEGIN
+//
+// Copyright (C) 2000-2008  Wizzer Works (msm@wizzerworks.com)
+// 
+// This file is part of the M3G Toolkit.
+//
+// The M3G Toolkit is free software; you can redistribute it and/or modify it
+// under the terms of the GNU Lesser General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
+// more details.
+//
+// You should have received a copy of the GNU Lesser General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+//
+// COPYRIGHT_END
+
+// Declare package.
 package com.wizzer.m3g;
 
-import com.wizzer.m3g.math.Vector3;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Hashtable;
-import javax.media.opengl.GL;
+// Import standard Java classes.
+import java.io.*;
+import java.util.*;
 
-public class Sprite3D extends Node {
-   private Image2D m_image;
-   private Appearance m_appearance;
-   private boolean m_scaled;
-   private int m_cropX;
-   private int m_cropY;
-   private int m_cropWidth;
-   private int m_cropHeight;
-   private static Hashtable m_textureCache = new Hashtable();
-   private Texture2D m_texture;
+// Import JOGL classes.
+import javax.media.opengl.*;
 
-   public Sprite3D(boolean scaled, Image2D image, Appearance appearance) {
-      this.m_scaled = scaled;
-      this.setImage(image);
-      this.m_appearance = appearance;
-      this.setCrop(0, 0, image.getWidth(), image.getHeight());
-   }
+// Import M3G Toolkit classes.
+import com.wizzer.m3g.math.*;
 
-   public boolean isScaled() {
-      return this.m_scaled;
-   }
+public class Sprite3D extends Node
+{
+	// The associated image.
+	private Image2D m_image;
+	// The associated appearance.
+	private Appearance m_appearance;
+	// Flag indicating whether image is scaled.
+	private boolean m_scaled;
+	// The current cropping rectangle X offset.
+	private int m_cropX;
+	// The current cropping rectangle Y offset.
+	private int m_cropY;
+	// The current cropping rectangle width.
+	private int m_cropWidth;
+	// The current cropping rectangle height.
+	private int m_cropHeight;
 
-   public void setAppearance(Appearance appearance) {
-      this.m_appearance = appearance;
-   }
+	// Used for JOGL rendering.
+	private static Hashtable m_textureCache = new Hashtable();
+	private Texture2D m_texture;
+	
+    ////////// Methods not part of M3G Specification //////////
+	
+	public Sprite3D(boolean scaled,Image2D image,Appearance appearance)
+	{
+		m_scaled = scaled;
+		setImage(image);
+		m_appearance = appearance;
+		setCrop(0, 0, image.getWidth(), image.getHeight());
+	}
 
-   public Appearance getAppearance() {
-      return this.m_appearance;
-   }
+	public boolean isScaled()
+	{
+		return m_scaled;
+	}
 
-   public void setImage(Image2D image) {
-      if (image == null) {
-         throw new NullPointerException("Sprite3D: image is null");
-      } else {
-         this.m_image = image;
-         this.setCrop(0, 0, image.getWidth(), image.getHeight());
-         this.m_texture = (Texture2D)m_textureCache.get(image);
-         if (this.m_texture == null) {
-            this.m_texture = new Texture2D(image);
-            this.m_texture.setFiltering(209, 209);
-            this.m_texture.setWrapping(240, 240);
-            this.m_texture.setBlending(228);
-            m_textureCache.put(image, this.m_texture);
-         }
+	public void setAppearance(Appearance appearance)
+	{
+		m_appearance = appearance;
+	}
 
-      }
-   }
+	public Appearance getAppearance()
+	{
+		return m_appearance;
+	}
 
-   public Image2D getImage() {
-      return this.m_image;
-   }
+	public void setImage(Image2D image)
+	{
+		if (image == null)
+			throw new NullPointerException("Sprite3D: image is null");
+		
+		m_image = image;
+		setCrop(0, 0, image.getWidth(), image.getHeight());
+		
+		m_texture = (Texture2D)m_textureCache.get(image); 
+		
+		if (m_texture == null)
+		{
+			m_texture = new Texture2D(image);
+			m_texture.setFiltering(Texture2D.FILTER_LINEAR,
+	                               Texture2D.FILTER_LINEAR);
+			m_texture.setWrapping(Texture2D.WRAP_CLAMP,
+	                              Texture2D.WRAP_CLAMP);
+			m_texture.setBlending(Texture2D.FUNC_REPLACE);
 
-   public void setCrop(int cropX, int cropY, int width, int height) {
-      this.m_cropX = cropX;
-      this.m_cropY = cropY;
-      this.m_cropWidth = width;
-      this.m_cropHeight = height;
-   }
+			// Cache texture.
+			m_textureCache.put(image, m_texture);
+		}
+	}
 
-   public int getCropX() {
-      return this.m_cropX;
-   }
+	public Image2D getImage()
+	{
+		return m_image;
+	}
 
-   public int getCropY() {
-      return this.m_cropY;
-   }
+	public void setCrop(int cropX, int cropY, int width, int height)
+	{
+		m_cropX = cropX;
+		m_cropY = cropY;
+		m_cropWidth = width;
+		m_cropHeight = height;
+	}
 
-   public int getCropWidth() {
-      return this.m_cropWidth;
-   }
+	public int getCropX()
+	{
+		return m_cropX;
+	}
 
-   public int getCropHeight() {
-      return this.m_cropHeight;
-   }
+	public int getCropY()
+	{
+		return m_cropY;
+	}
 
-   public int getReferences(Object3D[] references) throws IllegalArgumentException {
-      int numReferences = super.getReferences(references);
-      if (this.m_image != null) {
-         if (references != null) {
-            references[numReferences] = this.m_image;
-         }
+	public int getCropWidth()
+	{
+		return m_cropWidth;
+	}
 
-         ++numReferences;
-      }
+	public int getCropHeight()
+	{
+		return m_cropHeight;
+	}
 
-      if (this.m_appearance != null) {
-         if (references != null) {
-            references[numReferences] = this.m_appearance;
-         }
+	public int getReferences(Object3D[] references) throws IllegalArgumentException 
+	{
+		int numReferences = super.getReferences(references);
+		
+		if (m_image != null)
+		{
+			if (references != null)
+				references[numReferences] = m_image;
+			++numReferences;
+		}
+		
+		if (m_appearance != null)
+		{
+			if (references != null)
+				references[numReferences] = m_appearance;
+			++numReferences;
+		}
+				
+		return numReferences;
+	}
+	
+    ////////// Methods not part of M3G Specification //////////
 
-         ++numReferences;
-      }
+	/**
+	 * The default constructor.
+	 */
+	Sprite3D() { /* Do nothing. */ }
+	
+	public void setScaled(boolean scaled)
+	{
+		m_scaled = scaled;
+	}
 
-      return numReferences;
-   }
+	public int getObjectType()
+	{
+		return SPRITE3D;
+	}
 
-   Sprite3D() {
-   }
+	/**
+	 * Read field data.
+	 * 
+	 * @param is The input stream to read from.
+	 * @param table The cache of referenced objects.
+	 * 
+	 * @throws IOException This exception is thrown if an error occurs
+	 * reading the data.
+	 */
+	protected void unmarshall(M3GInputStream is, ArrayList table) throws IOException
+	{
+		super.unmarshall(is,table);
 
-   public void setScaled(boolean scaled) {
-      this.m_scaled = scaled;
-   }
+		long index = is.readObjectIndex();
+		if (index > 0)
+		{
+			M3GObject obj = getObjectAtIndex(table,index, IMAGE2D);
+			if (obj != null)
+				m_image = (Image2D)obj;
+			else
+				throw new IOException("Sprite3D:image-index = " + index);
+		}
+		else throw new IOException("Sprite3D:image-index = " + index);
+		index = is.readObjectIndex();
+		if (index != 0)
+		{
+			M3GObject obj = getObjectAtIndex(table, index, APPEARANCE);
+			if (obj != null)
+				m_appearance = (Appearance)obj;
+			else
+				throw new IOException("Sprite3D:appearance-index = " + index);
+		}
+		m_scaled = is.readBoolean();
+		setCrop((int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32());
+	}
 
-   public int getObjectType() {
-      return 18;
-   }
+	/**
+	 * Write field data.
+	 * 
+	 * @param os The output stream to write to.
+	 * @param table The cache of referenced objects.
+	 * 
+	 * @throws IOException This exception is thrown if an error occurs
+	 * writing the data.
+	 */
+	protected void marshall(M3GOutputStream os, ArrayList table) throws IOException
+	{
+		super.marshall(os,table);
 
-   protected void unmarshall(M3GInputStream is, ArrayList table) throws IOException {
-      super.unmarshall(is, table);
-      long index = is.readObjectIndex();
-      if (index > 0L) {
-         M3GObject obj = this.getObjectAtIndex(table, index, 10);
-         if (obj != null) {
-            this.m_image = (Image2D)obj;
-            index = is.readObjectIndex();
-            if (index != 0L) {
-               obj = this.getObjectAtIndex(table, index, 3);
-               if (obj == null) {
-                  throw new IOException("Sprite3D:appearance-index = " + index);
-               }
+		int index = table.indexOf(m_image);
+		if (index > 0)
+			os.writeObjectIndex(index);
+		else
+			throw new IOException("Sprite3D:image-index = " + index);
+		if (m_appearance != null)
+		{
+			index = table.indexOf(m_appearance);
+			if (index > 0)
+				os.writeObjectIndex(index);
+			else
+				throw new IOException("Sprite3D:appearance-index = " + index);
+		}
+		else os.writeObjectIndex(0);
+		os.writeBoolean(m_scaled);
+		os.writeInt32(m_cropX);
+		os.writeInt32(m_cropY);
+		os.writeInt32(m_cropWidth);
+		os.writeInt32(m_cropHeight);
+	}
 
-               this.m_appearance = (Appearance)obj;
-            }
+	/**
+	 * Build the reference table cache.
+	 * 
+	 * @param table The reference table cache.
+	 */
+	protected void buildReferenceTable(ArrayList table)
+	{
+		m_image.buildReferenceTable(table);
+		if (m_appearance != null)
+			m_appearance.buildReferenceTable(table);
 
-            this.m_scaled = is.readBoolean();
-            this.setCrop((int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32(), (int)is.readInt32());
-         } else {
-            throw new IOException("Sprite3D:image-index = " + index);
-         }
-      } else {
-         throw new IOException("Sprite3D:image-index = " + index);
-      }
-   }
+		super.buildReferenceTable(table);
+	}
+	
+	void render(GL gl, Transform t)
+	{
+		gl.glMatrixMode(GL.GL_MODELVIEW);
+		gl.glPushMatrix();
+		t.multGL(gl);
+		
+		// Get current modelview matrix.
+		float[] m = new float[16];
+		gl.glGetFloatv(GL.GL_MODELVIEW_MATRIX, m, 0);
+		
+		// Get up and right vector, used to create a camera-facing quad.
+		Vector3 up = new Vector3(m[1], m[5], m[9]);
+		up.normalize();
+		Vector3 right = new Vector3(m[0], m[4], m[8]);
+		right.normalize();
 
-   protected void marshall(M3GOutputStream os, ArrayList table) throws IOException {
-      super.marshall(os, table);
-      int index = table.indexOf(this.m_image);
-      if (index > 0) {
-         os.writeObjectIndex((long)index);
-         if (this.m_appearance != null) {
-            index = table.indexOf(this.m_appearance);
-            if (index <= 0) {
-               throw new IOException("Sprite3D:appearance-index = " + index);
-            }
+		float size = 1;
+		Vector3 rightPlusUp = new Vector3(right);
+		rightPlusUp.add(up);
+		rightPlusUp.multiply(size);
+		Vector3 rightMinusUp = new Vector3(right);
+		rightMinusUp.subtract(up);
+		rightMinusUp.multiply(size);
+		
+		Vector3 topLeft = new Vector3(rightMinusUp);
+		topLeft.multiply(-1);
 
-            os.writeObjectIndex((long)index);
-         } else {
-            os.writeObjectIndex(0L);
-         }
+		Vector3 topRight = new Vector3(rightPlusUp);
+		
+		Vector3 bottomLeft = new Vector3(rightPlusUp);
+		bottomLeft.multiply(-1);
 
-         os.writeBoolean(this.m_scaled);
-         os.writeInt32(this.m_cropX);
-         os.writeInt32(this.m_cropY);
-         os.writeInt32(this.m_cropWidth);
-         os.writeInt32(this.m_cropHeight);
-      } else {
-         throw new IOException("Sprite3D:image-index = " + index);
-      }
-   }
+		Vector3 bottomRight = new Vector3(rightMinusUp);
+		
+		Graphics3D.getInstance().setAppearance(getAppearance());
+		Graphics3D.getInstance().disableTextureUnits(); 
+		gl.glActiveTexture(GL.GL_TEXTURE0);
+		m_texture.setupGL(gl, new float[] {1,0,0,0});
 
-   protected void buildReferenceTable(ArrayList table) {
-      this.m_image.buildReferenceTable(table);
-      if (this.m_appearance != null) {
-         this.m_appearance.buildReferenceTable(table);
-      }
+		// Draw sprite
+        gl.glBegin(GL.GL_QUADS);       
+        
+        gl.glTexCoord2f(0, 0);	
+        gl.glVertex3f(topLeft.x, topLeft.y, topLeft.z);				// Top Left
+        
+        gl.glTexCoord2f(0, 1);	
+        gl.glVertex3f(bottomLeft.x, bottomLeft.y, bottomLeft.z);	// Bottom Left
+        
+        gl.glTexCoord2f(1, 1);	
+        gl.glVertex3f(bottomRight.x, bottomRight.y, bottomRight.z);	// Bottom Right
 
-      super.buildReferenceTable(table);
-   }
+        gl.glTexCoord2f(1, 0);	
+        gl.glVertex3f(topRight.x, topRight.y, topRight.z);			// Top Right
 
-   void render(GL gl, Transform t) {
-      gl.glMatrixMode(5888);
-      gl.glPushMatrix();
-      t.multGL(gl);
-      float[] m = new float[16];
-      gl.glGetFloatv(2982, m, 0);
-      Vector3 up = new Vector3(m[1], m[5], m[9]);
-      up.normalize();
-      Vector3 right = new Vector3(m[0], m[4], m[8]);
-      right.normalize();
-      float size = 1.0F;
-      Vector3 rightPlusUp = new Vector3(right);
-      rightPlusUp.add(up);
-      rightPlusUp.multiply(size);
-      Vector3 rightMinusUp = new Vector3(right);
-      rightMinusUp.subtract(up);
-      rightMinusUp.multiply(size);
-      Vector3 topLeft = new Vector3(rightMinusUp);
-      topLeft.multiply(-1.0F);
-      Vector3 topRight = new Vector3(rightPlusUp);
-      Vector3 bottomLeft = new Vector3(rightPlusUp);
-      bottomLeft.multiply(-1.0F);
-      Vector3 bottomRight = new Vector3(rightMinusUp);
-      Graphics3D.getInstance().setAppearance(this.getAppearance());
-      Graphics3D.getInstance().disableTextureUnits();
-      gl.glActiveTexture(33984);
-      this.m_texture.setupGL(gl, new float[]{1.0F, 0.0F, 0.0F, 0.0F});
-      gl.glBegin(7);
-      gl.glTexCoord2f(0.0F, 0.0F);
-      gl.glVertex3f(topLeft.x, topLeft.y, topLeft.z);
-      gl.glTexCoord2f(0.0F, 1.0F);
-      gl.glVertex3f(bottomLeft.x, bottomLeft.y, bottomLeft.z);
-      gl.glTexCoord2f(1.0F, 1.0F);
-      gl.glVertex3f(bottomRight.x, bottomRight.y, bottomRight.z);
-      gl.glTexCoord2f(1.0F, 0.0F);
-      gl.glVertex3f(topRight.x, topRight.y, topRight.z);
-      gl.glEnd();
-      gl.glPopMatrix();
-      gl.glDisable(3553);
-      gl.glDepthMask(true);
-   }
+        gl.glEnd();			
+
+		gl.glPopMatrix();
+        
+        gl.glDisable(GL.GL_TEXTURE_2D);
+        
+        // HACK: for some reason, the depth write flag of other object destroyed 
+        // after rendering a sprite.
+        // This ensures that it's defaulted back to true.
+        // TODO: find error and fix it!
+        gl.glDepthMask(true);
+	}
 }
